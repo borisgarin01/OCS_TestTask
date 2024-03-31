@@ -1,0 +1,5 @@
+﻿.vs
+OCS_TestTask/bin
+OCS_TestTask/obj
+*.sln
+OCS_TestTask/OCS_TestTask.csproj.user
