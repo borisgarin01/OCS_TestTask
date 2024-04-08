@@ -1,4 +1,4 @@
-﻿namespace OCS_TestTask.Models
+﻿namespace OCS_TestTask.Models.Models
 {
     public enum ActivityEnum
     {
