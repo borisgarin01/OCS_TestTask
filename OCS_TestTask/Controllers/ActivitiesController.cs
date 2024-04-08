@@ -1,28 +1,26 @@
-﻿using Dapper;
-using Microsoft.AspNetCore.Mvc;
-using Npgsql;
-using OCS_TestTask.Models;
+﻿using Microsoft.AspNetCore.Mvc;
+using OCS_TestTask.Models.Models;
+using OCS_TestTask.Repositories.Interfaces;
 
 namespace OCS_TestTask.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class ActivitiesController:ControllerBase
+    public sealed class ActivitiesController : ControllerBase
     {
+        private readonly IActivitiesRepository _activitiesRepository;
+
         public IConfiguration Configuration { get; }
-        public ActivitiesController(IConfiguration configuration)
+        public ActivitiesController(IConfiguration configuration, IActivitiesRepository activitiesRepository)
         {
             Configuration = configuration;
+            _activitiesRepository = activitiesRepository;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Activity>>> GetAvailableActivitiesTypes()
         {
-            IEnumerable<Activity> activities;
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
-            {
-                activities = await npgsqlConnection.QueryAsync<Activity>("SELECT * FROM Activities");
-            }
+            IEnumerable<Activity> activities = await _activitiesRepository.GetAvailableActivitiesTypes();
             return Ok(activities);
         }
     }

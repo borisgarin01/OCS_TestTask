@@ -1,130 +1,116 @@
-﻿using Dapper;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.AspNetCore.Mvc;
 using Npgsql;
-using System.ComponentModel.DataAnnotations;
-using OCS_TestTask.Models;
-using Npgsql.Internal;
+using OCS_TestTask.Models.Models;
+using OCS_TestTask.Repositories.Interfaces;
 
 namespace OCS_TestTask.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class ApplicationsController : ControllerBase
+    public sealed class ApplicationsController : ControllerBase
     {
+        private readonly IApplicationsRepository _applicationsRepository;
+        private readonly IApplicationsForComitteeConsiderationRepository _applicationsForComitteeConsiderationRepository;
+
         public IConfiguration Configuration { get; }
-        public ApplicationsController(IConfiguration configuration)
+        public ApplicationsController(IConfiguration configuration, IApplicationsRepository applicationsRepository, IApplicationsForComitteeConsiderationRepository applicationsForComitteeConsiderationRepository)
         {
             Configuration = configuration;
+            _applicationsRepository = applicationsRepository;
+            _applicationsForComitteeConsiderationRepository = applicationsForComitteeConsiderationRepository;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Application>>> Get()
         {
-            IEnumerable<Application> applications;
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
-            {
-                applications = await npgsqlConnection.QueryAsync<Application>("SELECT * FROM Applications");
-            }
+            IEnumerable<Application> applications = await _applicationsRepository.GetAllApplicationsAsync();
             return Ok(applications);
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteApplication(Guid id)
         {
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
+            Application application = await _applicationsRepository.GetApplicationByIdAsync(id);
+            if (application is null)
             {
-                Application application = await npgsqlConnection.QueryFirstOrDefaultAsync<Application>("SELECT * FROM Applications WHERE Id=@Id", new { Id = id });
-                if (application is null)
+                return NotFound($"Заявка с Id={id} не найдена");
+            }
+            else
+            {
+                ApplicationForComitteeConsideration applicationForConsideration = await _applicationsForComitteeConsiderationRepository.GetApplicationForComitteeConsideration(id);
+                if (applicationForConsideration is null)
                 {
-                    return NotFound($"Заявка с Id={id} не найдена");
+                    _applicationsRepository.DeleteApplicationAsync(id);
+                    return Ok("Заявка успешно удалена");
                 }
-                else
-                {
-                    dynamic applicationForConsideration = await npgsqlConnection.QueryFirstOrDefaultAsync("SELECT * FROM applications_for_comittee_consideration Where application_id=@id", new { id });
-                    if (applicationForConsideration is null)
-                    {
-                        await npgsqlConnection.ExecuteAsync("DELETE FROM Applications WHERE Id=@Id", new { Id = id });
-                        return Ok("Заявка успешно удалена");
-                    }
-                    else return BadRequest("Нельзя удалить заявку, находящуюся на рассмотрении");
-                }
+                else return BadRequest("Нельзя удалить заявку, находящуюся на рассмотрении");
             }
         }
 
         [HttpPost]
         public async Task<ActionResult> AddApplication(Application application)
         {
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
+            try
             {
-                try
+                int authorApplicationsForComitteeConsiderationCount = await _applicationsRepository.GetAuthorSubmittedApplicationsCount(application.AuthorId);
+
+                int authorApplicationCount = await _applicationsRepository.GetAuthorAllApplicationsCount(application.AuthorId);
+
+                if (authorApplicationsForComitteeConsiderationCount == authorApplicationCount)
                 {
-                    int authorApplicationsForComitteeConsiderationCount = await npgsqlConnection.QueryFirstAsync<int>("SELECT COUNT(*) FROM Applications INNER JOIN applications_for_comittee_consideration on Applications.Id=applications_for_comittee_consideration.application_id WHERE AuthorId=@AuthorId", new { AuthorId = application.AuthorId });
-                    int authorApplicationCount = await npgsqlConnection.QueryFirstAsync<int>("SELECT COUNT(*) FROM Applications WHERE AuthorId=@AuthorId", new { AuthorId = application.AuthorId });
-                    if (authorApplicationsForComitteeConsiderationCount == authorApplicationCount)
-                    {
-                        application.CreationTimeStamp = DateTime.Now;
-                        await npgsqlConnection.ExecuteAsync("INSERT INTO Applications (Id,AuthorId,Activity,Name,Description,Outline,CreationTimeStamp) VALUES(@Id,@AuthorId,@Activity,@Name,@Description,@Outline,@CreationTimeStamp)", new { Id = Guid.NewGuid(), application.AuthorId, application.Activity, application.Name, application.Description, application.Outline, application.CreationTimeStamp });
-                        return Ok();
-                    }
-                    return BadRequest("У вас есть неподанная заявка в черновиках");
+                    await _applicationsRepository.AddApplicationAsync(application);
+                    return Ok();
                 }
-                catch (Exception ex)
-                {
-                    return BadRequest();
-                }
+                return BadRequest("У вас есть неподанная заявка в черновиках");
+            }
+            catch
+            {
+                return BadRequest();
             }
         }
 
         [HttpPut]
         public async Task<ActionResult<Application>> UpdateApplication(Guid id, ApplicationUpdatingPart applicationUpdatingPart)
         {
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
+            Application application = await _applicationsRepository.GetApplicationByIdAsync(id);
+            if (application is null)
             {
-                Application application = await npgsqlConnection.QueryFirstOrDefaultAsync<Application>("SELECT * FROM Applications WHERE Id=@Id", new { Id = id });
-                if (application is null)
+                return NotFound();
+            }
+            else
+            {
+                try
                 {
-                    return NotFound();
+                    await _applicationsRepository.UpdateApplicationAsync(application, applicationUpdatingPart);
+
+                    Application updatedApplication = await _applicationsRepository.GetApplicationByIdAsync(id);
+
+                    return Ok(updatedApplication);
                 }
-                else
+                catch
                 {
-                    try
-                    {
-                        await npgsqlConnection.ExecuteAsync("UPDATE Applications SET Outline=@Outline, Activity=@Activity, Description=@Description, Name=@Name Where Id=@Id", new { applicationUpdatingPart.Outline, applicationUpdatingPart.Activity, applicationUpdatingPart.Description, applicationUpdatingPart.Name, id });
-                        return Ok(await npgsqlConnection.QueryFirstOrDefaultAsync<Application>("SELECT * FROM Applications WHERE Id=@Id", new { Id = id }));
-                    }
-                    catch
-                    {
-                        return BadRequest();
-                    }
+                    return BadRequest();
                 }
             }
         }
 
         [HttpPost("{applicationId}")]
-        public async Task<ActionResult> SendToComitteeConsideation(Guid applicationId)
+        public async Task<ActionResult> SendToComitteeConsideration(Guid applicationId)
         {
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
+            ApplicationForComitteeConsideration applicationForConsideration = await _applicationsForComitteeConsiderationRepository.GetApplicationForComitteeConsideration(applicationId);
+
+            if (applicationForConsideration is null)
             {
-                ApplicationForComitteeConsideration applicationForConsideration = await npgsqlConnection.QueryFirstOrDefaultAsync<ApplicationForComitteeConsideration>("SELECT * FROM applications_for_comittee_consideration Where Application_Id=@applicationId", new { applicationId });
-                if (applicationForConsideration is null)
-                {
-                    await npgsqlConnection.ExecuteAsync("INSERT INTO applications_for_comittee_consideration(id, application_id, submitting_timestamp) VALUES(@Id, @Application_Id, @SubmittingTimeStamp);", new ApplicationForComitteeConsideration { Id = Guid.NewGuid(), Application_Id = applicationId, SubmittingTimeStamp = DateTime.UtcNow });
-                    return Ok();
-                }
-                return BadRequest();
+                await _applicationsRepository.SendToComitteeConsiderationAsync(applicationId);
+                return Ok();
             }
+            return BadRequest();
         }
 
         [HttpGet("submittedAfter={submittedAfter}")]
         public async Task<ActionResult<IEnumerable<Application>>> GetApplicationsSubmittedAfterDate(DateTime submittedAfter)
         {
-            IEnumerable<Application> applications;
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
-            {
-
-                applications = await npgsqlConnection.QueryAsync<Application>($"SELECT Applications.Id, Applications.AuthorId, Applications.Activity, Applications.Name, Applications.Description, Applications.Outline FROM Applications INNER JOIN applications_for_comittee_consideration on applications_for_comittee_consideration.application_id=Applications.Id WHERE applications_for_comittee_consideration.submitting_timestamp > '{submittedAfter.ToString("yyyy-MM-dd")}'");
-            }
+            IEnumerable<Application> applications = await _applicationsRepository.GetApplicationsSubmittedAfterDateAsync(submittedAfter);
             if (applications == null)
             {
                 return NotFound();
@@ -135,11 +121,8 @@ namespace OCS_TestTask.Controllers
         [HttpGet("unsubmittedOlder={unsubmittedOlder}")]
         public async Task<ActionResult<IEnumerable<Application>>> GetApplicationsUnsubmittedOlderDate(DateTime unsubmittedOlder)
         {
-            IEnumerable<Application> applications;
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
-            {
-                applications = await npgsqlConnection.QueryAsync<Application>($"SELECT Applications.Id, Applications.AuthorId, Applications.Activity, Applications.Name, Applications.Description, Applications.Outline FROM Applications LEFT JOIN applications_for_comittee_consideration on Applications.Id = applications_for_comittee_consideration.application_id WHERE applications_for_comittee_consideration.application_id is null and Applications.creationtimestamp > '{unsubmittedOlder.ToString("yyyy-MM-dd")}'");
-            }
+            IEnumerable<Application> applications = await _applicationsRepository.GetApplicationsUnsubmittedOlderDateAsync(unsubmittedOlder);
+
             if (applications == null)
             {
                 return NotFound();
@@ -153,7 +136,7 @@ namespace OCS_TestTask.Controllers
             Application application;
             using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
             {
-                application = await npgsqlConnection.QueryFirstOrDefaultAsync<Application>($"SELECT * FROM Applications Where Id=@ApplicationId", new { ApplicationId = applicationId });
+                application = await _applicationsRepository.GetApplicationByIdAsync(applicationId);
             }
             if (application == null)
             {

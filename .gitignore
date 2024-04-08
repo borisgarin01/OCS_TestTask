@@ -3,3 +3,7 @@ OCS_TestTask/bin
 OCS_TestTask/obj
 *.sln
 OCS_TestTask/OCS_TestTask.csproj.user
+Data/obj
+Data/bin
+Models/bin
+Models/obj
