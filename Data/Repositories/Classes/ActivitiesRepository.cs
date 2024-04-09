@@ -17,7 +17,7 @@ namespace OCS_TestTask.Repositories.Classes
         public async Task<IEnumerable<Activity>> GetAvailableActivitiesTypes()
         {
             IEnumerable<Activity> activities;
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(_connectionString))
+            using (var npgsqlConnection = new NpgsqlConnection(_connectionString))
             {
                 activities = await npgsqlConnection.QueryAsync<Activity>("SELECT * FROM Activities");
             }

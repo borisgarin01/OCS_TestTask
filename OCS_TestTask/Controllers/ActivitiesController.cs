@@ -20,7 +20,7 @@ namespace OCS_TestTask.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Activity>>> GetAvailableActivitiesTypes()
         {
-            IEnumerable<Activity> activities = await _activitiesRepository.GetAvailableActivitiesTypes();
+            var activities = await _activitiesRepository.GetAvailableActivitiesTypes();
             return Ok(activities);
         }
     }

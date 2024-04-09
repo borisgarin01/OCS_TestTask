@@ -24,21 +24,21 @@ namespace OCS_TestTask.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Application>>> Get()
         {
-            IEnumerable<Application> applications = await _applicationsRepository.GetAllApplicationsAsync();
+            var applications = await _applicationsRepository.GetAllApplicationsAsync();
             return Ok(applications);
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteApplication(Guid id)
         {
-            Application application = await _applicationsRepository.GetApplicationByIdAsync(id);
+            var application = await _applicationsRepository.GetApplicationByIdAsync(id);
             if (application is null)
             {
                 return NotFound($"Заявка с Id={id} не найдена");
             }
             else
             {
-                ApplicationForComitteeConsideration applicationForConsideration = await _applicationsForComitteeConsiderationRepository.GetApplicationForComitteeConsideration(id);
+                var applicationForConsideration = await _applicationsForComitteeConsiderationRepository.GetApplicationForComitteeConsideration(id);
                 if (applicationForConsideration is null)
                 {
                     _applicationsRepository.DeleteApplicationAsync(id);
@@ -53,9 +53,9 @@ namespace OCS_TestTask.Controllers
         {
             try
             {
-                int authorApplicationsForComitteeConsiderationCount = await _applicationsRepository.GetAuthorSubmittedApplicationsCount(application.AuthorId);
+                var authorApplicationsForComitteeConsiderationCount = await _applicationsRepository.GetAuthorSubmittedApplicationsCount(application.AuthorId);
 
-                int authorApplicationCount = await _applicationsRepository.GetAuthorAllApplicationsCount(application.AuthorId);
+                var authorApplicationCount = await _applicationsRepository.GetAuthorAllApplicationsCount(application.AuthorId);
 
                 if (authorApplicationsForComitteeConsiderationCount == authorApplicationCount)
                 {
@@ -73,7 +73,7 @@ namespace OCS_TestTask.Controllers
         [HttpPut]
         public async Task<ActionResult<Application>> UpdateApplication(Guid id, ApplicationUpdatingPart applicationUpdatingPart)
         {
-            Application application = await _applicationsRepository.GetApplicationByIdAsync(id);
+            var application = await _applicationsRepository.GetApplicationByIdAsync(id);
             if (application is null)
             {
                 return NotFound();
@@ -83,8 +83,7 @@ namespace OCS_TestTask.Controllers
                 try
                 {
                     await _applicationsRepository.UpdateApplicationAsync(application, applicationUpdatingPart);
-
-                    Application updatedApplication = await _applicationsRepository.GetApplicationByIdAsync(id);
+                    var updatedApplication = await _applicationsRepository.GetApplicationByIdAsync(id);
 
                     return Ok(updatedApplication);
                 }
@@ -98,7 +97,7 @@ namespace OCS_TestTask.Controllers
         [HttpPost("{applicationId}")]
         public async Task<ActionResult> SendToComitteeConsideration(Guid applicationId)
         {
-            ApplicationForComitteeConsideration applicationForConsideration = await _applicationsForComitteeConsiderationRepository.GetApplicationForComitteeConsideration(applicationId);
+            var applicationForConsideration = await _applicationsForComitteeConsiderationRepository.GetApplicationForComitteeConsideration(applicationId);
 
             if (applicationForConsideration is null)
             {
@@ -111,7 +110,7 @@ namespace OCS_TestTask.Controllers
         [HttpGet("submittedAfter={submittedAfter}")]
         public async Task<ActionResult<IEnumerable<Application>>> GetApplicationsSubmittedAfterDate(DateTime submittedAfter)
         {
-            IEnumerable<Application> applications = await _applicationsRepository.GetApplicationsSubmittedAfterDateAsync(submittedAfter);
+            var applications = await _applicationsRepository.GetApplicationsSubmittedAfterDateAsync(submittedAfter);
             if (applications == null)
             {
                 return NotFound();
@@ -122,7 +121,7 @@ namespace OCS_TestTask.Controllers
         [HttpGet("unsubmittedOlder={unsubmittedOlder}")]
         public async Task<ActionResult<IEnumerable<Application>>> GetApplicationsUnsubmittedOlderDate(DateTime unsubmittedOlder)
         {
-            IEnumerable<Application> applications = await _applicationsRepository.GetApplicationsUnsubmittedOlderDateAsync(unsubmittedOlder);
+            var applications = await _applicationsRepository.GetApplicationsUnsubmittedOlderDateAsync(unsubmittedOlder);
 
             if (applications == null)
             {
@@ -134,11 +133,7 @@ namespace OCS_TestTask.Controllers
         [HttpGet("{applicationId}")]
         public async Task<ActionResult<Application>> GetApplicationById(Guid applicationId)
         {
-            Application application;
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(Configuration.GetConnectionString("DefaultConnection")))
-            {
-                application = await _applicationsRepository.GetApplicationByIdAsync(applicationId);
-            }
+            var application = await _applicationsRepository.GetApplicationByIdAsync(applicationId);
             if (application == null)
             {
                 return NotFound();

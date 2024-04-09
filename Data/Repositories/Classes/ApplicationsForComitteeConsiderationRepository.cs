@@ -16,7 +16,7 @@ namespace OCS_TestTask.Repositories.Classes
         public async Task<ApplicationForComitteeConsideration> GetApplicationForComitteeConsideration(Guid id)
         {
             ApplicationForComitteeConsideration applicationForConsideration;
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(_connectionString))
+            using (var npgsqlConnection = new NpgsqlConnection(_connectionString))
             {
                 applicationForConsideration = await npgsqlConnection.QueryFirstOrDefaultAsync("SELECT * FROM ApplicationsForComitteeConsideration Where ApplicationId=@id", new { id });
             }

@@ -17,7 +17,7 @@ namespace OCS_TestTask.Repositories.Classes
         public async Task<Application> GetCurrentApplicationForUserAsync(Guid userId)
         {
             Application application;
-            using (NpgsqlConnection npgsqlConnection = new NpgsqlConnection(_connectionString))
+            using (var npgsqlConnection = new NpgsqlConnection(_connectionString))
             {
                 application = await npgsqlConnection.QueryFirstOrDefaultAsync<Application>("SELECT * FROM Applications LEFT JOIN applications_for_comittee_consideration on Applications.Id = applications_for_comittee_consideration.application_id WHERE applications_for_comittee_consideration.application_id is null and Applications.AuthorId=@AuthorId;", new { AuthorId = userId });
             }
