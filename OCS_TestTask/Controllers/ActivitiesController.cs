@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using OCS_TestTask.Models.Models;
+using OCS_TestTask.Models.DTOs;
 using OCS_TestTask.Repositories.Interfaces;
 
 namespace OCS_TestTask.Controllers

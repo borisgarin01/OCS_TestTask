@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace OCS_TestTask.Models.Models
+namespace OCS_TestTask.Models.DTOs
 {
     public sealed class ApplicationUpdatingPart
     {

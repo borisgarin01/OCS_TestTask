@@ -1,4 +1,4 @@
-﻿using OCS_TestTask.Models.Models;
+﻿using OCS_TestTask.Models.DTOs;
 
 namespace OCS_TestTask.Repositories.Interfaces
 {

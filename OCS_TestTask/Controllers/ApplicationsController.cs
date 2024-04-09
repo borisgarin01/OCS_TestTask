@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using OCS_TestTask.Models.DTOs;
 using OCS_TestTask.Models.Models;
 using OCS_TestTask.Repositories.Interfaces;
 
